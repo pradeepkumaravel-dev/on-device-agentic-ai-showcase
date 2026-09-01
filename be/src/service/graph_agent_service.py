@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import asyncio
+import aiosqlite
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage
@@ -102,9 +104,41 @@ class GraphAgentService:
         except Exception as e:
             raise NormalExceptions(message="exception occurred in graph_agent_service.py", error=str(e), log=True)
 
+    async def _generate_session_title(self, first_message: str) -> str:
+        try:
+            llm = LLMUtil(model_type="local").get_model()
+            prompt = f"Generate a short title (max 5 words) for this chat based on the first message. Only return the title, no quotes or explanation. Message: {first_message}"
+            response = await llm.ainvoke([HumanMessage(content=prompt)])
+            return response.content.strip().strip('\"').strip("'\'")
+        except Exception as e:
+            logger.error(f"Error generating session title: {e}")
+            return "New Chat"
+
     async def stream(self, messages: list[ChatMessage], session_id: str):
         try:
-            config = {
+            is_new_session = False
+            title_task = None
+            async with aiosqlite.connect(config.DB_FILE_PATH) as conn:
+                cursor = await conn.execute("SELECT id FROM sessions WHERE id = ?", (session_id,))
+                row = await cursor.fetchone()
+                if not row:
+                    is_new_session = True
+                    await conn.execute(
+                        "INSERT INTO sessions (id, title) VALUES (?, ?)", 
+                        (session_id, "New Chat")
+                    )
+                else:
+                    await conn.execute(
+                        "UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", 
+                        (session_id,)
+                    )
+                await conn.commit()
+
+            if is_new_session and messages:
+                first_msg = messages[0].content
+                title_task = asyncio.create_task(self._generate_session_title(first_msg))
+
+            graph_config = {
                 "configurable": {
                     "thread_id": session_id 
                 }
@@ -112,7 +146,7 @@ class GraphAgentService:
             root_run_id = None
             active_outer_node = None
             async for event in self.graph.astream_events(
-                self._initial_state(messages, session_id), version="v2" , config=config
+                self._initial_state(messages, session_id), version="v2" , config=graph_config
             ):
                 if root_run_id is None:
                     # The very first event is always the outer graph's own
@@ -153,6 +187,14 @@ class GraphAgentService:
                             "usage": _usage_payload(final_state.get("turn_usage")),
                         }
                     )
+                    
+            if title_task:
+                title = await title_task
+                async with aiosqlite.connect(config.DB_FILE_PATH) as conn:
+                    await conn.execute("UPDATE sessions SET title = ? WHERE id = ?", (title, session_id))
+                    await conn.commit()
+                yield _sse({"type": "session_title", "title": title})
+                
         except Exception as e:
             yield _sse({"type": "error", "message": str(e)})
 

@@ -1,14 +1,16 @@
-import { useRef, useState } from "react";
-import type { AgentChatMessage, ChatMessage, GraphNode, StreamEvent, UsageInfo } from "../../types/chat";
-import { streamAgentMessage, summarize } from "../../api/ChatAPI";
+import { useRef, useState, useEffect } from "react";
+import type { AgentChatMessage, ChatMessage, GraphNode, StreamEvent, UsageInfo, Session } from "../../types/chat";
+import { streamAgentMessage, summarize, getSessions, getChatHistory, deleteSession } from "../../api/ChatAPI";
 import GraphTree from "../GraphTree";
 import MessageBubble from "../MessageBubble";
 import TokenUsageBar from "../TokenUsageBar";
 import ThinkingBar from "../ThinkingBar";
 import ThinkingDrawer from "../ThinkingDrawer";
+import { SessionSidebar } from "../SessionSidebar";
 
 const ChatBot = () => {
-    const [session] = useState({ session_id: "12345" });
+    const [sessionId, setSessionId] = useState<string>(crypto.randomUUID());
+    const [sessions, setSessions] = useState<Session[]>([]);
 
     // displayMessages: full history, always rendered.
     // contextMessages: what's actually sent to the model each turn - starts
@@ -34,6 +36,48 @@ const ChatBot = () => {
     const [isThinking, setIsThinking] = useState(false);
     const [currentThinkingText, setCurrentThinkingText] = useState('');
     const [thinkingDrawerOpen, setThinkingDrawerOpen] = useState(false);
+
+    useEffect(() => {
+        const fetchSessions = async () => {
+            try {
+                const data = await getSessions();
+                setSessions(data);
+            } catch (err) {
+                console.error("Failed to load sessions", err);
+            }
+        };
+        fetchSessions();
+    }, []);
+
+    const handleSelectSession = async (id: string) => {
+        if (id === sessionId) return;
+        setSessionId(id);
+        try {
+            const history = await getChatHistory(id);
+            setDisplayMessages(history.length ? history : [{ role: "assistant", content: "Howdy mate" }]);
+            setContextMessages(history.length ? history : [{ role: "assistant", content: "Howdy mate" }]);
+        } catch(err) {
+            console.error("Failed to load history", err);
+        }
+    };
+
+    const handleNewChat = () => {
+        setSessionId(crypto.randomUUID());
+        setDisplayMessages([{ role: "assistant", content: "Howdy mate" }]);
+        setContextMessages([{ role: "assistant", content: "Howdy mate" }]);
+    };
+
+    const handleDeleteSession = async (id: string) => {
+        try {
+            await deleteSession(id);
+            setSessions(prev => prev.filter(s => s.id !== id));
+            if (id === sessionId) {
+                handleNewChat();
+            }
+        } catch (err) {
+            console.error("Failed to delete session", err);
+        }
+    };
 
     // Token deltas are buffered and flushed once per animation frame instead
     // of one setState per SSE token - qwen3's reasoning mode alone can emit
@@ -121,11 +165,21 @@ const ChatBot = () => {
                     pendingTokenRef.current = '';
                     appendToLastMessage({ content: `Error: ${event.message}` });
                     break;
+                case 'session_title':
+                    setSessions(prev => {
+                        const exists = prev.find(s => s.id === sessionId);
+                        if (exists) {
+                            return prev.map(s => s.id === sessionId ? { ...s, title: event.title } : s);
+                        } else {
+                            return [{ id: sessionId, title: event.title, created_at: '', updated_at: '' }, ...prev];
+                        }
+                    });
+                    break;
             }
         };
 
         try {
-            await streamAgentMessage({ session_id: session.session_id, messages: newContext }, onEvent);
+            await streamAgentMessage({ session_id: sessionId, messages: newContext }, onEvent);
         } catch (err) {
             pendingTokenRef.current = '';
             appendToLastMessage({ content: `Error: ${(err as Error).message}` });
@@ -140,7 +194,7 @@ const ChatBot = () => {
         if (isSummarizing) return;
         setIsSummarizing(true);
         try {
-            const result = await summarize({ session_id: session.session_id, messages: contextMessages });
+            const result = await summarize({ session_id: sessionId, messages: contextMessages });
             setContextMessages([
                 { role: 'system', content: `Summary of earlier conversation: ${result.summary}` },
             ]);
@@ -153,6 +207,13 @@ const ChatBot = () => {
 
     return (
         <div className="page-container">
+            <SessionSidebar 
+                sessions={sessions}
+                activeSessionId={sessionId}
+                onSelectSession={handleSelectSession}
+                onNewChat={handleNewChat}
+                onDeleteSession={handleDeleteSession}
+            />
             <aside className="side-panel">
                 <div className="side-panel-section">
                     <h2 className="side-panel-title">Graph execution</h2>

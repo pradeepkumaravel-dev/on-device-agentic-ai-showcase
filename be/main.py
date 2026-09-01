@@ -18,6 +18,15 @@ logger = logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with aiosqlite.connect(DB_FILE_PATH) as conn:
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        await conn.commit()
         checkpointer = AsyncSqliteSaver(conn)
         graph_agent_service = GraphAgentService()
         await graph_agent_service.start(checkpointer=checkpointer)

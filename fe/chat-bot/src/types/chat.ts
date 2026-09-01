@@ -5,6 +5,13 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface Session {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatRequest {
   session_id: string;
   messages: ChatMessage[];
@@ -69,7 +76,12 @@ export interface ErrorEvent {
   message: string;
 }
 
-export type StreamEvent = NodeStartEvent | NodeEndEvent | TokenEvent | ThinkingEvent | DoneEvent | ErrorEvent;
+export interface SessionTitleEvent {
+  type: 'session_title';
+  title: string;
+}
+
+export type StreamEvent = NodeStartEvent | NodeEndEvent | TokenEvent | ThinkingEvent | DoneEvent | ErrorEvent | SessionTitleEvent;
 
 export interface SummarizeResponse {
   summary: string;

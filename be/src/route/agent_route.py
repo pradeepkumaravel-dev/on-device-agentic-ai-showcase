@@ -4,12 +4,39 @@ from fastapi.responses import StreamingResponse
 from src.utilities.exception_utils import NormalExceptions
 from src.schema.agent_schema import AgentChatResponse, ChatRequest, SummarizeResponse
 from src.service.graph_agent_service import GraphAgentService
+import aiosqlite
+from src.config import DB_FILE_PATH
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/chat"
 )
+
+@router.get("/sessions")
+async def get_sessions():
+    try:
+        async with aiosqlite.connect(DB_FILE_PATH) as conn:
+            conn.row_factory = aiosqlite.Row
+            cursor = await conn.execute("SELECT * FROM sessions ORDER BY updated_at DESC")
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+    except Exception as e:
+        raise NormalExceptions(message="error occurred at agent_route.py:/sessions", error=str(e), log=False)
+    except NormalExceptions:
+        raise
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    try:
+        async with aiosqlite.connect(DB_FILE_PATH) as conn:
+            await conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            await conn.commit()
+            return {"status": "success"}
+    except Exception as e:
+        raise NormalExceptions(message="error occurred at agent_route.py:/sessions (DELETE)", error=str(e), log=False)
+    except NormalExceptions:
+        raise
 
 @router.post("/chat-history")
 async def get_chat_history(session_id, req:Request):

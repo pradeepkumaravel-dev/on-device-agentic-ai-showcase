@@ -1,11 +1,25 @@
 import { apiClient } from "./Client";
 
 
-import type { AgentChatResponse, ChatRequest, ChatResponse, StreamEvent, SummarizeResponse } from "../types/chat";
+import type { AgentChatResponse, ChatRequest, ChatResponse, StreamEvent, SummarizeResponse, Session, ChatMessage } from "../types/chat";
 
 export async function sendMessage(payload: ChatRequest) : Promise<ChatResponse> {
     const {data} = await apiClient.post<ChatResponse>('/chat/invoke-model',payload);
     return data;
+}
+
+export async function getSessions(): Promise<Session[]> {
+    const { data } = await apiClient.get<Session[]>('/chat/sessions');
+    return data;
+}
+
+export async function getChatHistory(sessionId: string): Promise<ChatMessage[]> {
+    const { data } = await apiClient.post<ChatMessage[]>(`/chat/chat-history?session_id=${sessionId}`);
+    return data;
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+    await apiClient.delete(`/chat/sessions/${sessionId}`);
 }
 
 export async function sendAgentMessage(payload: ChatRequest): Promise<AgentChatResponse> {
