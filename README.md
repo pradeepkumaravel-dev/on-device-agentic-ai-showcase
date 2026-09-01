@@ -9,7 +9,7 @@ The core philosophy of this project is to utilize open-source resources to build
 - GPU with a minimum of 2GB VRAM
 - Internet connection (for the initial setup to download dependencies)
 
-## One-Click Setup (New!)
+## One-Click Setup
 
 I've completely automated the installation process so you don't have to manually install a dozen dependencies. 
 
