@@ -41,9 +41,15 @@ const ChatBot = () => {
         const fetchSessions = async () => {
             try {
                 const data = await getSessions();
-                setSessions(data);
+                if (Array.isArray(data)) {
+                    setSessions(data);
+                } else {
+                    console.error("API returned non-array for sessions:", data);
+                    setSessions([]);
+                }
             } catch (err) {
                 console.error("Failed to load sessions", err);
+                setSessions([]);
             }
         };
         fetchSessions();
@@ -167,11 +173,12 @@ const ChatBot = () => {
                     break;
                 case 'session_title':
                     setSessions(prev => {
-                        const exists = prev.find(s => s.id === sessionId);
+                        const safePrev = Array.isArray(prev) ? prev : [];
+                        const exists = safePrev.find(s => s.id === sessionId);
                         if (exists) {
-                            return prev.map(s => s.id === sessionId ? { ...s, title: event.title } : s);
+                            return safePrev.map(s => s.id === sessionId ? { ...s, title: event.title } : s);
                         } else {
-                            return [{ id: sessionId, title: event.title, created_at: '', updated_at: '' }, ...prev];
+                            return [{ id: sessionId, title: event.title, created_at: '', updated_at: '' }, ...safePrev];
                         }
                     });
                     break;

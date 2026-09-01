@@ -10,12 +10,13 @@ interface SessionSidebarProps {
 }
 
 export const SessionSidebar: React.FC<SessionSidebarProps> = ({
-  sessions,
+  sessions = [],
   activeSessionId,
   onSelectSession,
   onNewChat,
   onDeleteSession
 }) => {
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
   return (
     <div className="session-sidebar">
       <div className="session-sidebar-header">
@@ -25,7 +26,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
         </button>
       </div>
       <div className="session-list">
-        {sessions.map((session) => (
+        {safeSessions.map((session) => (
           <div
             key={session.id}
             className={`session-item ${session.id === activeSessionId ? 'session-item--active' : ''}`}
@@ -41,7 +42,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
             </button>
           </div>
         ))}
-        {sessions.length === 0 && (
+        {safeSessions.length === 0 && (
           <div className="session-empty">No previous chats.</div>
         )}
       </div>
