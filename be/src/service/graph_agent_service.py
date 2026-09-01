@@ -221,9 +221,16 @@ class GraphAgentService:
             config = {"configurable": {"thread_id": session_id}}
             state_snapshot = await self.graph.aget_state(config)
             messages = state_snapshot.values.get("messages", [])
-            print(messages)
-            return messages 
+            
+            formatted_messages = []
+            for m in messages:
+                role = "assistant" if m.type == "ai" else "user" if m.type == "human" else "system"
+                formatted_messages.append({
+                    "role": role,
+                    "content": m.content
+                })
+            return formatted_messages 
         except NormalExceptions:
             raise
         except Exception as e:
-            raise NormalExceptions(message="exception occurred in graph_agent_service.py:summarize", error=str(e), log=True)
+            raise NormalExceptions(message="exception occurred in graph_agent_service.py:get_chat_history", error=str(e), log=True)
