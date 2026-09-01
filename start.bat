@@ -1,0 +1,3 @@
+@echo off
+echo Starting Full Stack Chat Application Setup...
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0start.ps1"
