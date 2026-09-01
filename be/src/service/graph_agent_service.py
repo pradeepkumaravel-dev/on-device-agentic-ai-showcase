@@ -8,7 +8,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from src import config
 from src.schema.agent_schema import ChatMessage
 from src.service.graph.build_graph import GraphBuilder
-from src.service.invoke_model import ROLE_MAP
+from src.config import ROLE_MAP
 from src.utilities.exception_utils import NormalExceptions
 from src.utilities.llm_util import LLMUtil
 
@@ -67,10 +67,10 @@ class GraphAgentService:
         )
         self.graph = None
 
-    async def start(self):
+    async def start(self, checkpointer=None):
         try:
             tools = await self.mcp_client.get_tools()
-            self.graph = GraphBuilder(tools).build()
+            self.graph = GraphBuilder(tools).build(checkpointer)
             logger.info("desktop agent graph ready with tools: %s", [t.name for t in tools])
         except NormalExceptions:
             raise
@@ -104,10 +104,15 @@ class GraphAgentService:
 
     async def stream(self, messages: list[ChatMessage], session_id: str):
         try:
+            config = {
+                "configurable": {
+                    "thread_id": session_id 
+                }
+            }
             root_run_id = None
             active_outer_node = None
             async for event in self.graph.astream_events(
-                self._initial_state(messages, session_id), version="v2"
+                self._initial_state(messages, session_id), version="v2" , config=config
             ):
                 if root_run_id is None:
                     # The very first event is always the outer graph's own
@@ -164,6 +169,18 @@ class GraphAgentService:
             # itself became the final, trailing Human turn).
             response = await llm.ainvoke([*lc_messages, HumanMessage(content=SUMMARIZE_PROMPT)])
             return {"summary": response.content, "usage": _usage_payload(response.usage_metadata)}
+        except NormalExceptions:
+            raise
+        except Exception as e:
+            raise NormalExceptions(message="exception occurred in graph_agent_service.py:summarize", error=str(e), log=True)
+
+    async def get_chat_history(self,session_id:str):
+        try:
+            config = {"configurable": {"thread_id": session_id}}
+            state_snapshot = await self.graph.aget_state(config)
+            messages = state_snapshot.values.get("messages", [])
+            print(messages)
+            return messages 
         except NormalExceptions:
             raise
         except Exception as e:

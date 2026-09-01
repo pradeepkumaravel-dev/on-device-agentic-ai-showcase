@@ -3,7 +3,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from src.utilities.exception_utils import NormalExceptions
 from src.schema.agent_schema import AgentChatResponse, ChatRequest, SummarizeResponse
-from src.service.invoke_model import InvokeModelService
 from src.service.graph_agent_service import GraphAgentService
 
 logger = logging.getLogger(__name__)
@@ -12,21 +11,18 @@ router = APIRouter(
     prefix="/chat"
 )
 
-
-@router.post("/invoke-model")
-async def invoke_model(request:ChatRequest , ai_model:str = "local"):
+@router.post("/chat-history")
+async def get_chat_history(session_id, req:Request):
     try:
-        logger.info("Chat Session invoked")
-        # No repository layer exists for now, will be added in a future version
-        service = InvokeModelService(repository="dummy", model_type=ai_model)
-        response = await service.invoke_model(request.messages)
-        return response
-
+        logger.info("Desktop agent graph invoked")
+        service: GraphAgentService = req.app.state.graph_agent_service
+        response = await service.get_chat_history(session_id)
+        return response        
+        
     except Exception as e:
-        raise NormalExceptions(message="error occurred at agent_route.py", error=str(e), log=False)
+        raise NormalExceptions(message="error occurred at agent_route.py:/chat-history", error=str(e), log=False)
     except NormalExceptions:
         raise
-
 
 @router.post("/desktop-agent", response_model=AgentChatResponse)
 async def desktop_agent(request: ChatRequest, req: Request):

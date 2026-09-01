@@ -1,9 +1,14 @@
-import uvicorn , logging
+import uvicorn , logging , aiosqlite
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from src.config import DB_FILE_PATH
 from src.route.agent_route import router as agent_router
 from src.service.graph_agent_service import GraphAgentService
+from dotenv import load_dotenv
+load_dotenv
+
 
 logger = logging.basicConfig(
     format="%(asctime)s %(clientip)-15s %(user)-8s %(message)s"
@@ -12,10 +17,12 @@ logger = logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    graph_agent_service = GraphAgentService()
-    await graph_agent_service.start()
-    app.state.graph_agent_service = graph_agent_service
-    yield
+    async with aiosqlite.connect(DB_FILE_PATH) as conn:
+        checkpointer = AsyncSqliteSaver(conn)
+        graph_agent_service = GraphAgentService()
+        await graph_agent_service.start(checkpointer=checkpointer)
+        app.state.graph_agent_service = graph_agent_service
+        yield
 
 
 app = FastAPI(lifespan=lifespan)

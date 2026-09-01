@@ -217,3 +217,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+be/state_checkpoints.sqlite
+be/state_checkpoints.sqlite-shm
+be/state_checkpoints.sqlite-wal
+be/state_checkpoints.sqlite-x-checkpoints-1-checkpoint.bin
+be/state_checkpoints.sqlite-x-writes-18-value.bin

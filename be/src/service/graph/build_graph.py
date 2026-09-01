@@ -13,7 +13,7 @@ class GraphBuilder:
     def __init__(self, tools):
         self.tools = tools
 
-    def build(self):
+    def build(self, checkpointer=None):
         try:
             nodes = SubAgentNodes(self.tools)
             supervisor = SupervisorNode()
@@ -34,7 +34,7 @@ class GraphBuilder:
             graph.add_edge("desktop", END)
             graph.add_edge("screen", END)
 
-            return graph.compile()
+            return graph.compile(checkpointer=checkpointer)
         except NormalExceptions:
             raise
         except Exception as e:

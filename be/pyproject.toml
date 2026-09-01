@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "aiosqlite>=0.22.1",
     "asyncpg>=0.31.0",
     "comtypes>=1.4.16",
     "ddgs>=9.15.0",
@@ -14,6 +15,7 @@ dependencies = [
     "langchain-mcp-adapters>=0.3.2",
     "langchain-ollama>=1.1.0",
     "langgraph>=1.2.11",
+    "langgraph-checkpoint-sqlite>=3.1.1",
     "mcp>=1.29.0",
     "mss>=10.2.0",
     "ollama>=0.6.2",
