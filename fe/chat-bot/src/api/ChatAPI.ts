@@ -27,7 +27,7 @@ export async function sendAgentMessage(payload: ChatRequest): Promise<AgentChatR
     return data;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = "http://localhost:8080";
 
 // EventSource can't send a POST body, so the SSE stream is read manually via
 // fetch + a ReadableStream reader instead.
