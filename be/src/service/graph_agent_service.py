@@ -19,14 +19,7 @@ logger = logging.getLogger(__name__)
 DESKTOP_TOOLS_SCRIPT = Path(__file__).resolve().parent.parent / "mcp_server" / "desktop_tools.py"
 
 GRAPH_NODES = {"supervisor", "chat", "desktop", "screen"}
-# Nodes whose text is streamed to the frontend as thinking/token events.
-# Both chat and desktop are create_react_agent subgraphs internally, and
-# create_react_agent always names its own LLM-calling node "agent" - so a
-# static {internal_name: outer_name} map can't tell a chat turn's stream
-# chunks apart from a desktop turn's (both report node="agent"). Instead,
-# `stream()` tracks whichever of these outer nodes most recently started and
-# attributes any nested chat-model chunk to that - unambiguous since the
-# supervisor only ever routes to one of them per turn.
+
 TEXT_STREAMING_OUTER_NODES = {"chat", "desktop"}
 
 SUMMARIZE_PROMPT = (
@@ -53,10 +46,6 @@ def _sse(payload: dict) -> str:
 
 class GraphAgentService:
     def __init__(self):
-        # Full env is passed (rather than MCP's default restricted allowlist)
-        # since this is our own trusted local server, not a third-party one -
-        # tools like nvidia-smi (via get_system_info) need vars such as
-        # ProgramFiles/ProgramData/windir that the default allowlist omits.
         self.mcp_client = MultiServerMCPClient(
             {
                 "desktop": {
@@ -149,11 +138,6 @@ class GraphAgentService:
                 self._initial_state(messages, session_id), version="v2" , config=graph_config
             ):
                 if root_run_id is None:
-                    # The very first event is always the outer graph's own
-                    # on_chain_start - its run_id anchors "the whole run is
-                    # done" below. Needed because create_react_agent's inner
-                    # subgraph is *also* named "LangGraph" and emits its own
-                    # on_chain_end, which would otherwise fire "done" early.
                     root_run_id = event.get("run_id")
 
                 et = event["event"]
@@ -202,13 +186,6 @@ class GraphAgentService:
         try:
             lc_messages = [ROLE_MAP[m.role](content=m.content) for m in messages]
             llm = LLMUtil(model_type="local").get_model()
-            # The instruction goes AFTER the history as a trailing HumanMessage,
-            # not before it as a SystemMessage: qwen3's chat template emits an
-            # immediate stop token when asked to generate right after a
-            # conversation that already ends on an AIMessage (verified: 4/4
-            # reproducible empty responses with a leading-SystemMessage prompt
-            # whose history ends on an AI turn; 0/3 failures once the prompt
-            # itself became the final, trailing Human turn).
             response = await llm.ainvoke([*lc_messages, HumanMessage(content=SUMMARIZE_PROMPT)])
             return {"summary": response.content, "usage": _usage_payload(response.usage_metadata)}
         except NormalExceptions:
