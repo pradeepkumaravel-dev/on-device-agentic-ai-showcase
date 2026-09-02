@@ -35,7 +35,7 @@ class RouteDecision(BaseModel):
 
 class SupervisorNode:
     def __init__(self):
-        self.llm = LLMUtil(model_type="local").get_model()
+        self.llm = LLMUtil(model_type="local").get_model(reasoning=False)
         self.structured_llm = self.llm.with_structured_output(RouteDecision)
 
     async def route(self, state: GraphState) -> dict:

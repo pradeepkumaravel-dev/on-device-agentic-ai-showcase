@@ -123,9 +123,9 @@ class GraphAgentService:
                     )
                 await conn.commit()
 
-            if is_new_session and messages:
-                first_msg = messages[0].content
-                title_task = asyncio.create_task(self._generate_session_title(first_msg))
+            if (len(messages)%3) == 0:
+                short_context = "".join([ message.content for message in messages])
+                title_task = asyncio.create_task(self._generate_session_title(short_context))
 
             graph_config = {
                 "configurable": {
